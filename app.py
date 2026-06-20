@@ -5,7 +5,7 @@ import yfinance as yf
 
 # Cấu hình trang web Streamlit
 st.set_page_config(page_title="So Sánh Đầu Tư", layout="wide")
-st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu_HS PHÙNG CÔNG BÁCH")
+st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu")
 st.caption("Dữ liệu cổ phiếu được lấy chuẩn xác theo giá điều chỉnh từ Yahoo Finance.")
 
 # --- THANH ĐIỀU KHIỂN (SIDEBAR) ---
@@ -18,7 +18,7 @@ co_che = st.sidebar.radio(
 )
 
 # Nhập các thông số tài chính
-ticker = st.sidebar.text_input("Mã cổ phiếu (Ví dụ: FPT.VN, VNM.VN, E1VFVN30.VN):", "FPT.VN")
+ticker = st.sidebar.text_input("Mã cổ phiếu (Ví dụ: FPT.VN, VIC.VN, E1VFVN30.VN):", "VIC.VN")
 vons_bandau = st.sidebar.number_input("Số vốn ban đầu (VND):", min_value=0, value=10000000, step=1000000)
 
 # Hiện ô nhập tiền hàng tháng nếu chọn DCA
@@ -32,30 +32,28 @@ K_nam = st.sidebar.slider("Thời gian backtest (Năm):", min_value=1, max_value
 
 # --- XỬ LÝ DỮ LIỆU ---
 if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
-    with st.spinner("Đang tải dữ liệu cổ phiếu..."):
-        # Tải dữ liệu lịch sử theo tháng
+    with st.spinner("Đang tải và xử lý dữ liệu sạch..."):
+        # Bước 1: Tải dữ liệu theo NGÀY (Dữ liệu ngày của Yahoo cực kỳ chuẩn và không bị lỗi dòng ảo)
         period_str = f"{K_nam}y"
-        data = yf.download(ticker, period=period_str, interval="1mo")
+        data = yf.download(ticker, period=period_str, interval="1d")
         
         if not data.empty:
-            # LÀM SẠCH DỮ LIỆU: Xử lý lỗi tiêu đề nhiều tầng (MultiIndex) của yfinance bản mới
+            # Xử lý lỗi tiêu đề nhiều tầng (MultiIndex) của yfinance bản mới
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.droplevel(1)
             
-            # 1. Sắp xếp lại index theo thứ tự thời gian tăng dần để tránh lỗi đan chéo đường vẽ
+            # Sắp xếp theo dòng thời gian tăng dần
             data = data.sort_index()
             
-            # 2. LỌC BỎ NHIỄU RĂNG CƯA: Loại bỏ các dòng chốt quyền ảo bằng cách giữ lại dòng có Volume > 0
-            if 'Volume' in data.columns:
-                data['Volume'] = data['Volume'].fillna(0)
-                data = data[data['Volume'] > 0]
-            
-            # 3. Loại bỏ trùng lặp ngày nếu có phát sinh
-            data = data[~data.index.duplicated(keep='first')]
-            
-            # Chọn cột giá thích hợp
+            # Chọn cột giá điều chỉnh (Adj Close) để tính toán chính xác cổ tức/chia tách
             target_col = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
-            prices = data[target_col].dropna()
+            
+            # Lọc bỏ các dòng lỗi không có giá trị (nếu có)
+            raw_prices = data[target_col].dropna()
+            
+            # BƯỚC QUAN TRỌNG: Tự resample từ NGÀY sang THÁNG (Lấy mức giá của ngày cuối cùng mỗi tháng)
+            # Cách này triệt tiêu hoàn toàn 100% hiện tượng răng cưa dữ liệu ảo
+            prices = raw_prices.resample('ME').last().dropna()
             
             if not prices.empty:
                 df_calc = pd.DataFrame(index=prices.index)
@@ -113,6 +111,6 @@ if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.error("Dữ liệu giá cổ phiếu trống sau khi làm sạch nhiễu.")
+                st.error("Không thể xử lý dữ liệu sau khi đồng bộ theo tháng.")
         else:
             st.error(f"Không thể lấy dữ liệu cho mã '{ticker}'. Hãy kiểm tra lại ký tự mã (Ví dụ mã sàn VN cần thêm đuôi .VN như FPT.VN).")
