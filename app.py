@@ -6,7 +6,7 @@ import yfinance as yf
 # Cấu hình trang web Streamlit
 st.set_page_config(page_title="So Sánh Đầu Tư", layout="wide")
 st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu")
-st.caption("Dữ liệu cổ phiếu được lấy chuẩn xác theo giá điều chỉnh (Adj Close) từ Yahoo Finance.")
+st.caption("Dữ liệu cổ phiếu được lấy chuẩn xác theo giá điều chỉnh từ Yahoo Finance.")
 
 # --- THANH ĐIỀU KHIỂN (SIDEBAR) ---
 st.sidebar.header("⚙️ Cấu Hình Thông Số")
@@ -38,8 +38,13 @@ if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
         data = yf.download(ticker, period=period_str, interval="1mo")
         
         if not data.empty:
-            # Lấy giá điều chỉnh để chuẩn xác khi chia cổ tức/tách cổ phiếu
-            prices = data['Adj Close'].dropna()
+            # LÀM SẠCH DỮ LIỆU: Xử lý lỗi tiêu đề nhiều tầng (MultiIndex) của yfinance bản mới
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.droplevel(1)
+            
+            # Chọn cột giá thích hợp
+            target_col = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
+            prices = data[target_col].dropna()
             
             df_calc = pd.DataFrame(index=prices.index)
             df_calc['Stock_Price'] = prices
