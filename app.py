@@ -5,7 +5,7 @@ import yfinance as yf
 
 # Cấu hình trang web Streamlit
 st.set_page_config(page_title="So Sánh Đầu Tư", layout="wide")
-st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu")
+st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu_HS Phùng Công Bách")
 st.caption("Dữ liệu cổ phiếu được lấy chuẩn xác theo giá điều chỉnh từ Yahoo Finance.")
 
 # --- THANH ĐIỀU KHIỂN (SIDEBAR) ---
