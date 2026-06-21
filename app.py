@@ -5,7 +5,7 @@ import yfinance as yf
 
 # Cấu hình trang web Streamlit
 st.set_page_config(page_title="So Sánh Đầu Tư", layout="wide")
-st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu / ETF")
+st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu_HS PHÙNG CÔNG BÁCH")
 st.caption("Dữ liệu được tối ưu hóa tự động và loại bỏ hoàn toàn nhiễu từ Yahoo Finance.")
 
 # --- THANH ĐIỀU KHIỂN (SIDEBAR) ---
@@ -16,7 +16,7 @@ co_che = st.sidebar.radio(
     ("Mua một cục ban đầu (Lump-sum)", "Tích lũy hàng tháng (DCA)")
 )
 
-ticker = st.sidebar.text_input("Mã chứng khoán (Ví dụ: FPT.VN, VIC.VN, E1VFVN30.VN, FUEVFVND.VN):", "E1VFVN30.VN")
+ticker = st.sidebar.text_input("Mã chứng khoán (Ví dụ: FPT.VN, VIC.VN, ACB.VN):", "FPT.VN")
 vons_bandau = st.sidebar.number_input("Số vốn ban đầu (VND):", min_value=0, value=10000000, step=1000000)
 
 if co_che == "Tích lũy hàng tháng (DCA)":
