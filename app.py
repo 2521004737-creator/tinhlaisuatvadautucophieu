@@ -5,8 +5,8 @@ import yfinance as yf
 
 # Cấu hình trang web Streamlit
 st.set_page_config(page_title="So Sánh Đầu Tư", layout="wide")
-st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu")
-st.caption("Dữ liệu cổ phiếu được lấy chuẩn xác theo giá điều chỉnh từ Yahoo Finance.")
+st.title("📊 Công Cụ So Sánh Tích Lũy: Tiết Kiệm vs Cổ Phiếu / ETF")
+st.caption("Dữ liệu được tối ưu hóa tự động cho cả Cổ phiếu và Quỹ ETF từ Yahoo Finance.")
 
 # --- THANH ĐIỀU KHIỂN (SIDEBAR) ---
 st.sidebar.header("⚙️ Cấu Hình Thông Số")
@@ -18,7 +18,7 @@ co_che = st.sidebar.radio(
 )
 
 # Nhập các thông số tài chính
-ticker = st.sidebar.text_input("Mã cổ phiếu (Ví dụ: FPT.VN, VIC.VN, E1VFVN30.VN):", "VIC.VN")
+ticker = st.sidebar.text_input("Mã chứng khoán (Ví dụ: FPT.VN, VIC.VN, E1VFVN30.VN, FUEVFVND.VN):", "E1VFVN30.VN")
 vons_bandau = st.sidebar.number_input("Số vốn ban đầu (VND):", min_value=0, value=10000000, step=1000000)
 
 # Hiện ô nhập tiền hàng tháng nếu chọn DCA
@@ -32,28 +32,23 @@ K_nam = st.sidebar.slider("Thời gian backtest (Năm):", min_value=1, max_value
 
 # --- XỬ LÝ DỮ LIỆU ---
 if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
-    with st.spinner("Đang tải và xử lý dữ liệu sạch..."):
-        # Bước 1: Tải dữ liệu theo NGÀY (Dữ liệu ngày của Yahoo cực kỳ chuẩn và không bị lỗi dòng ảo)
+    with st.spinner("Đang tải và xử lý dữ liệu chuẩn..."):
         period_str = f"{K_nam}y"
-        data = yf.download(ticker, period=period_str, interval="1d")
+        ticker_obj = yf.Ticker(ticker)
+        data = ticker_obj.history(period=period_str, interval="1d")
         
         if not data.empty:
-            # Xử lý lỗi tiêu đề nhiều tầng (MultiIndex) của yfinance bản mới
-            if isinstance(data.columns, pd.MultiIndex):
-                data.columns = data.columns.droplevel(1)
-            
             # Sắp xếp theo dòng thời gian tăng dần
             data = data.sort_index()
             
-            # Chọn cột giá điều chỉnh (Adj Close) để tính toán chính xác cổ tức/chia tách
-            target_col = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
+            # Lấy giá đóng cửa đã tự động điều chỉnh chia tách/cổ tức
+            raw_prices = data['Close'].dropna()
             
-            # Lọc bỏ các dòng lỗi không có giá trị (nếu có)
-            raw_prices = data[target_col].dropna()
-            
-            # BƯỚC QUAN TRỌNG: Tự resample từ NGÀY sang THÁNG (Lấy mức giá của ngày cuối cùng mỗi tháng)
-            # Cách này triệt tiêu hoàn toàn 100% hiện tượng răng cưa dữ liệu ảo
-            prices = raw_prices.resample('ME').last().dropna()
+            # Tự động tương thích phiên bản Pandas khi resample theo tháng
+            try:
+                prices = raw_prices.resample('ME').last().dropna()
+            except ValueError:
+                prices = raw_prices.resample('M').last().dropna()
             
             if not prices.empty:
                 df_calc = pd.DataFrame(index=prices.index)
@@ -68,7 +63,7 @@ if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
                     tk_assets.append(current_tk)
                 df_calc['Tiet_Kiem'] = tk_assets
                 
-                # 2. Tính toán kênh Cổ Phiếu
+                # 2. Tính toán kênh Cổ Phiếu / ETF
                 stock_assets = []
                 total_shares = 0
                 tong_goc_da_nap = 0
@@ -89,17 +84,56 @@ if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
                 final_tk = df_calc['Tiet_Kiem'].iloc[-1]
                 final_stock = df_calc['Co_Phieu'].iloc[-1]
                 
+                # Tính % tăng trưởng tổng so với vốn gốc đã nạp
+                pct_tang_tk = ((final_tk - tong_goc_da_nap) / tong_goc_da_nap) * 100
+                pct_tang_stock = ((final_stock - tong_goc_da_nap) / tong_goc_da_nap) * 100
+                
+                # Tính Lợi nhuận trung bình hàng năm (CAGR) của riêng giá cổ phiếu
+                gia_dau_ky = df_calc['Stock_Price'].iloc[0]
+                gia_cuoi_ky = df_calc['Stock_Price'].iloc[-1]
+                cagr_stock = ((gia_cuoi_ky / gia_dau_ky) ** (1 / K_nam) - 1) * 100
+                
                 # --- HIỂN THỊ KẾT QUẢ KINH DOANH ---
+                st.subheader("📈 Hiệu Suất Tổng Kết Quá Trình Tích Lũy")
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Tổng Vốn Gốc Đã Nạp", f"{tong_goc_da_nap:,.0f} VND")
-                col2.metric("Giá trị Tiết Kiệm thu về", f"{final_tk:,.0f} VND", f"Lãi: {(final_tk - tong_goc_da_nap):,.0f} VND")
-                col3.metric(f"Giá trị Cổ Phiếu ({ticker})", f"{final_stock:,.0f} VND", f"Chênh lệch: {(final_stock - final_tk):,.0f} VND", delta_color="normal")
+                
+                col2.metric(
+                    "Tài Sản Tiết Kiệm", 
+                    f"{final_tk:,.0f} VND", 
+                    f"Tổng lãi: +{pct_tang_tk:.2f}%"
+                )
+                
+                col3.metric(
+                    f"Tài Sản {ticker}", 
+                    f"{final_stock:,.0f} VND", 
+                    f"Tổng lãi: +{pct_tang_stock:.2f}%" if pct_tang_stock >= 0 else f"Tổng lỗ: {pct_tang_stock:.2f}%"
+                )
+                
+                # --- THÔNG SỐ CHUYÊN SÂU ---
+                st.write("---")
+                st.subheader("📊 Chỉ Số Tăng Trưởng Riêng Của Chứng Khoán")
+                col_cagr1, col_cagr2 = st.columns(2)
+                
+                col_cagr1.metric(
+                    f"Lợi nhuận TB hàng năm (CAGR) của {ticker}", 
+                    f"{cagr_stock:.2f}% / năm",
+                    help="Tốc độ tăng trưởng kép hàng năm của thị giá tài sản, tính từ điểm bắt đầu đến điểm kết thúc."
+                )
+                
+                # Tính chênh lệch hiệu suất cuối kỳ giữa 2 kênh
+                chenh_lech_tien = final_stock - final_tk
+                if chenh_lech_tien >= 0:
+                    col_cagr2.success(f"🔥 Kênh chứng khoán giúp bạn KIẾM THÊM: {chenh_lech_tien:,.0f} VND so với gửi tiết kiệm.")
+                else:
+                    col_cagr2.warning(f"⚠️ Kênh chứng khoán khiến bạn THIỆT HẠI: {abs(chenh_lech_tien):,.0f} VND so với gửi tiết kiệm.")
                 
                 # --- VẼ BIỂU ĐỒ TÍCH LŨY ---
-                st.subheader("📈 Biểu Đồ Tăng Trưởng Tài Sản Qua Các Năm")
+                st.write("---")
+                st.subheader("📉 Biểu Đồ Diễn Biến Tăng Trưởng Tài Sản Qua Các Năm")
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(x=df_calc.index, y=df_calc['Tiet_Kiem'], name='Tài sản Tiết Kiệm', line=dict(color='#A3A3A3', width=2)))
-                fig.add_trace(go.Scatter(x=df_calc.index, y=df_calc['Co_Phieu'], name=f'Tài sản Cổ Phiếu ({ticker})', line=dict(color='#8B5CF6', width=3)))
+                fig.add_trace(go.Scatter(x=df_calc.index, y=df_calc['Co_Phieu'], name=f'Tài sản Chứng Khoán ({ticker})', line=dict(color='#8B5CF6', width=3)))
                 
                 fig.update_layout(
                     hovermode="x unified",
@@ -113,4 +147,4 @@ if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
             else:
                 st.error("Không thể xử lý dữ liệu sau khi đồng bộ theo tháng.")
         else:
-            st.error(f"Không thể lấy dữ liệu cho mã '{ticker}'. Hãy kiểm tra lại ký tự mã (Ví dụ mã sàn VN cần thêm đuôi .VN như FPT.VN).")
+            st.error(f"Không thể tải dữ liệu lịch sử cho mã '{ticker}'. Hãy chắc chắn rằng mã được nhập chính xác (Ví dụ đuôi .VN).")
