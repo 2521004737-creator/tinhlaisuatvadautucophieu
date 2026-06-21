@@ -16,7 +16,7 @@ co_che = st.sidebar.radio(
     ("Mua một cục ban đầu (Lump-sum)", "Tích lũy hàng tháng (DCA)")
 )
 
-ticker = st.sidebar.text_input("Mã chứng khoán (Ví dụ: FPT.VN, VIC.VN, ACB.VN):", "FPT.VN")
+ticker = st.sidebar.text_input("Mã chứng khoán (Ví dụ: FPT.VN, VIC.VN, ACB.VN):", "VIC.VN")
 vons_bandau = st.sidebar.number_input("Số vốn ban đầu (VND):", min_value=0, value=10000000, step=1000000)
 
 if co_che == "Tích lũy hàng tháng (DCA)":
@@ -133,9 +133,9 @@ if st.sidebar.button("📊 Tính Toán Kết Quả", type="primary"):
                     
                     chenh_lech_tien = final_stock - final_tk
                     if chenh_lech_tien >= 0:
-                        col_cagr2.success(f"🔥 Kênh chứng khoán giúp bạn KIẾM THÊM: {chenh_lech_tien:,.0f} VND so với gửi tiết kiệm.")
+                        col_cagr2.success(f"🔥 Kênh chứng khoán giúp bạn TẠO RA THÊM: {chenh_lech_tien:,.0f} VND lợi nhuận so với gửi tiết kiệm.")
                     else:
-                        col_cagr2.warning(f"⚠️ Kênh chứng khoán khiến bạn THIỆT HẠI: {abs(chenh_lech_tien):,.0f} VND so với gửi tiết kiệm.")
+                        col_cagr2.warning(f"⚠️ Kênh chứng khoán khiến bạn LỖ: {abs(chenh_lech_tien):,.0f} VND so với gửi tiết kiệm.")
                     
                     # --- VẼ BIỂU ĐỒ TÍCH LŨY ---
                     st.write("---")
